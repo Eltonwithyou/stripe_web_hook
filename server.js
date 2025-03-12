@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const { Client, Databases } = require('node-appwrite');
+const { Client, Databases,Query } = require('node-appwrite');
 const bodyParser = require('body-parser');
 
 // Initialize Express app
