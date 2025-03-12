@@ -82,7 +82,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         process.env.APPWRITE_COLLECTION_ID,
         paymentDoc.$id,
         {
-          paymentStatus: 'succeeded',
+          paymentStatus: 'paid',
           paymentMethod: paymentIntent.payment_method_types[0],
           // Add any other fields you want to update
         }
