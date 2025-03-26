@@ -43,7 +43,14 @@ app.post('/webhook', async (req, res) => {
     switch (event.type) {
       case 'payment_intent.succeeded':
         console.log('Payment Intent Succeeded Response:', JSON.stringify(event.data.object, null, 2));
-         await handlePaymentIntentSucceeded(event.data.object);
+        if (event.data.object.metadata && event.data.object.metadata.purpose) {
+          console.log(`Payment has defined purpose: ${event.data.object.metadata.purpose}`);
+          if (event.data.object.metadata.purpose === 'wallet') {
+            await handlePaymentIntentWallet(event.data.object);
+          }
+        } else {
+          await handlePaymentIntentSucceeded(event.data.object);
+        }
         break;
       case 'payment_intent.payment_failed':
         console.log('Payment Intent Failed Response:', JSON.stringify(event.data.object, null, 2));
@@ -111,6 +118,94 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
     }
   } catch (error) {
     console.error(`Error updating Appwrite database: ${error.message}`);
+    throw error;
+  }
+}
+
+// Handle failed payment
+async function handlePaymentIntentWallet(paymentIntent) {
+  console.log(`Wallet PaymentIntent succeeded: ${paymentIntent.id}`);
+  
+  try {
+    // 1️⃣ Vérifier si l'utilisateur possède un wallet
+    const userId = paymentIntent.metadata.userId;
+    if (!userId) {
+      console.error('No userId found in payment metadata');
+      throw new Error('Missing userId in payment metadata');
+    }
+    
+    console.log(`Processing wallet payment for user: ${userId}`);
+    
+    // Check if wallet exists for this user
+    let walletDoc;
+    const walletExist = await databases.listDocuments(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_COLLECTION_WALLET_ID,
+      [Query.equal("userId", userId)]
+    );
+
+    // If wallet doesn't exist, create one
+    if (walletExist.documents.length === 0) {
+      console.log(`Creating new wallet for user: ${userId}`);
+      walletDoc = await databases.createDocument(
+        process.env.APPWRITE_DATABASE_ID,
+        process.env.APPWRITE_COLLECTION_WALLET_ID,
+        'unique()',
+        {
+          userId: userId,
+          balance: 0,
+          currency: paymentIntent.currency || 'usd',
+        }
+      );
+      console.log(`Created new wallet with ID: ${walletDoc.$id}`);
+    } else {
+      walletDoc = walletExist.documents[0];
+    }
+    
+    // 2️⃣ Créer la transaction de dépôt
+    const amountToAdd = paymentIntent.amount / 100; // Convert from cents to dollars/euros
+    
+    // Verify amount is positive
+    if (amountToAdd <= 0) {
+      throw new Error(`Invalid deposit amount: ${amountToAdd}`);
+    }
+    
+    // Create transaction record
+    const transactionDoc = await databases.createDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_COLLECTION_TRANSACTIONS_ID,
+      'unique()',
+      {
+        walletId: walletDoc.$id,
+        type: 'deposit',
+        amount: amountToAdd,
+        currency: paymentIntent.currency || 'usd',
+        paymentId: paymentIntent.id,
+        statutTransfer: 'completed',
+      }
+    );
+    
+    console.log(`Created deposit transaction: ${transactionDoc.$id} for amount: ${amountToAdd}`);
+    
+    // 3️⃣ Mettre à jour le solde du wallet
+    const currentBalance = parseFloat(walletDoc.balance) || 0;
+    const newBalance = currentBalance + amountToAdd;
+    
+    // Update wallet balance
+    await databases.updateDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_COLLECTION_WALLET_ID,
+      walletDoc.$id,
+      {
+        balance: newBalance,
+        updatedAt: new Date().toISOString()
+      }
+    );
+    
+    console.log(`Updated wallet balance for user ${userId}: +${amountToAdd}, new balance: ${newBalance}`);
+    
+  } catch (error) {
+    console.error(`Error processing wallet payment: ${error.message}`);
     throw error;
   }
 }
