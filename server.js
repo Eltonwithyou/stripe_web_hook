@@ -153,7 +153,7 @@ async function handlePaymentIntentWallet(paymentIntent) {
         'unique()',
         {
           userId: userId,
-          balance: 0,
+          balance: '0',
           currency: paymentIntent.currency || 'usd',
         }
       );
@@ -197,7 +197,7 @@ async function handlePaymentIntentWallet(paymentIntent) {
       process.env.APPWRITE_COLLECTION_WALLET_ID,
       walletDoc.$id,
       {
-        balance: newBalance,
+        balance: newBalance.toString(),
         updatedAt: new Date().toISOString()
       }
     );
