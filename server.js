@@ -177,7 +177,7 @@ async function handlePaymentIntentWallet(paymentIntent) {
       'unique()',
       {
         walletId: walletDoc.$id,
-        type: 'deposit',
+        type: 'depot',
         amount: amountToAdd.toString(),
         currency: paymentIntent.currency || 'usd',
         paymentId: paymentIntent.id,
