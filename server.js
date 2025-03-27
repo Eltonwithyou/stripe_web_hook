@@ -178,7 +178,7 @@ async function handlePaymentIntentWallet(paymentIntent) {
       {
         walletId: walletDoc.$id,
         type: 'deposit',
-        amount: amountToAdd,
+        amount: amountToAdd.toString(),
         currency: paymentIntent.currency || 'usd',
         paymentId: paymentIntent.id,
         statutTransfer: 'completed',
