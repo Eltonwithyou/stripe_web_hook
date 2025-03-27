@@ -198,7 +198,7 @@ async function handlePaymentIntentWallet(paymentIntent) {
       walletDoc.$id,
       {
         balance: newBalance.toString(),
-        updatedAt: new Date().toISOString()
+        currency: paymentIntent.currency
       }
     );
     
